@@ -1,341 +1,295 @@
-# Repository Audit
+# 仓库完整审计报告
 
-> Audit snapshot: before the portfolio reorganization.
->
-> Repository: `WangBaren02/Image-acquisition-and-recognition-robotic-arm-analysis-and-control-system-based-on-FPGA`
->
-> Scope: repository contents, Git history, RTL structure, the `CICC_2025_Arm.zip` snapshot, technical documents, attribution evidence, and static integration risks. No RTL behavior was changed while producing this audit.
+**仓库：** `WangBaren02/Image-acquisition-and-recognition-robotic-arm-analysis-and-control-system-based-on-FPGA`
+**审计日期：** 2026-09-09
+**审计对象：** 当前 Git 工作树、历史整理后的图像端/机械臂端 RTL、新上传的图像处理代码和 `VIP_TOP.png`、技术报告、比赛 PPT、`CICC_2025_Arm.zip`、vendor/generated material。
+**审计原则：** 先核实文件和实例连接，再做目录、文档和展示整理；本轮不修改 RTL 功能行为，不删除原始技术资料，不把未确认的代码写成个人原创。
 
-## 1. Audit basis and current Git state
-
-- Current checkout: `main`, at `9b3d4fc` (`Update README.md`), tracking `origin/main`.
-- Git history currently contains 15 commits from 2025-10-23 through 2025-10-30. The history is linear and has no merge commits or tags.
-- The Git author on the existing commits is `Hanwen Zhang <WangBaren02@163.com>`. This is evidence about repository commit metadata, not sufficient evidence to assign authorship of every RTL module.
-- The working tree was not clean at the start of the audit. Eighteen tracked files were marked modified, including `README.md`, `LICENSE`, and RTL files. `git diff --ignore-space-at-eol` reported no semantic content changes; the observed difference is a Windows CRLF/line-ending change. These pre-existing working-tree changes must not be mistaken for this reorganization.
-- No root `.gitignore` or `.gitattributes` was present.
-- There is no standalone Quartus/Vivado project file at the repository root. The visible image-side RTL has no accompanying clock-wizard/MIG/FIFO project sources.
-
-The audit used the tracked tree, Verilog text/module declarations, explicit instantiations and external references, the ZIP directory listing and extracted source, the Quartus project settings inside the ZIP, the two PDF documents, and a visual inspection of `c6.png`.
-
-## 2. Current directory structure before reorganization
+## 1. 当前仓库结构
 
 ```text
 .
-├── CICC_2025_Arm.zip
-├── LICENSE
 ├── README.md
-├── c6.png
-├── new/
-│   ├── axi_ddr3_rw/
-│   │   ├── axi_ctrl.v
-│   │   ├── axi_ddr_top.v
-│   │   ├── axi_master_read.v
-│   │   └── axi_master_write.v
-│   ├── hdmi/
-│   │   ├── encode.v
-│   │   ├── hdmi_ctrl.v
-│   │   ├── par_to_ser.v
-│   │   └── vga_ctrl.v
-│   ├── impress/
-│   │   ├── VIP_RGB888_YCbCr444.v
-│   │   ├── angle_find.v
-│   │   ├── binarization.v
-│   │   ├── connect_8_area.v
-│   │   ├── connect_component_top.v
-│   │   ├── coordinate_centroid.v
-│   │   ├── dilation.v
-│   │   ├── erosion/
-│   │   │   ├── Line_Shift_RAM_1Bit.v
-│   │   │   ├── connect_8_area.v
-│   │   │   ├── erosion.v
-│   │   │   ├── line_shift_ram_8bit.v
-│   │   │   └── matrix_generate_3x3_1bit.v
-│   │   └── rgb2ycbcr.v
-│   ├── ov5640/
-│   │   ├── i2c_ctrl.v
-│   │   ├── ov5640_cfg.v
-│   │   ├── ov5640_data.v
-│   │   └── ov5640_top.v
-│   ├── ov5640_hdmi.v
-│   └── sim_sobel_tb.v
-├── 技术文档.pdf
-└── 答辩PPT.pdf
+├── LICENSE
+├── .gitignore / .gitattributes
+├── rtl/
+│   ├── top/
+│   │   ├── vision/                       图像端当前顶层和旧顶层 variant
+│   │   └── robotic_arm/                  机械臂侧顶层
+│   ├── camera/ov5640/                    OV5640 配置与采集
+│   ├── vision/
+│   │   ├── color_space/                  颜色空间、reference、转换候选
+│   │   ├── segmentation/                活动颜色分割与二值化候选
+│   │   ├── morphology/                  3 × 3、7 × 7 形态学和行缓存
+│   │   ├── connected_components/        8 连通域和 variant
+│   │   ├── feature_extraction/          质心/边界/面积/形状
+│   │   ├── angle_estimation/            方向角估计
+│   │   ├── control/                     图像端按键控制
+│   │   └── variants/                    newbe/tiaoshi 实验版本
+│   ├── memory/axi_ddr3/                 AXI/DDR3 用户侧包装
+│   ├── display/hdmi/                    VGA/HDMI
+│   ├── display/seven_segment/           数码管显示
+│   ├── inter_board/spi/                 板间 SPI
+│   ├── robotic_arm/                    运动学、放置、控制、舵机
+│   └── vendor/                          已标注的厂商/生成 IP
+├── sim/
+│   ├── vision/                          图像端仿真文件
+│   └── robotic_arm/                    机械臂侧 testbench
+├── hardware/quartus/                   Quartus 项目/配置快照
+├── docs/                               审计、review、技术报告和 PPT
+├── media/                              系统照片和图像端框图
+├── third_party/                        归因边界说明
+└── archive/
+    ├── CICC_2025_Arm.zip               原始机械臂工程压缩包
+    └── previous_image_processing/      上一轮图像端快照
 ```
 
-Tracked content at the snapshot consists of 27 Verilog files, one PNG, two PDFs, one ZIP archive, `README.md`, and `LICENSE`. There are no loose generated Quartus/Vivado databases outside the ZIP.
+新上传的 `rtl/new/` 已经整理完成，最终树中不再保留含义不清的 `new/` 活动目录。`archive/previous_image_processing/` 和 `archive/CICC_2025_Arm.zip` 用于版本对照和溯源，不作为当前活动工程的无选择 file list。
 
-## 3. System architecture established from the files
+## 2. 系统架构
 
-The documents and RTL describe two FPGA domains:
+从技术报告、当前图像端顶层、机械臂侧顶层和 SPI 文件可以确认这是两个 FPGA 设计域组成的系统快照：
 
-1. **Vision / image-acquisition side** — the technical document identifies the Wildfire ShengTeng Mini Artix-7 board with an XC7A100T device. The visible RTL top is `new/ov5640_hdmi.v`, which contains OV5640 capture, RGB565-to-YCbCr conversion, the image-processing top, an AXI/DDR3 wrapper, and VGA/HDMI output.
-2. **Robotic-arm side** — `CICC_2025_Arm.zip/CICC_2025_Arm.qsf` sets the family to `Cyclone IV E`, the device to `EP4CE6F17C8L`, and the top-level entity to `CICC_2025_Arm`. The technical document describes this side as the AWC_C4/Cyclone IV control board and the connection board to the ShengTeng board.
+```mermaid
+flowchart LR
+    CAM[OV5640 摄像头]
 
-The intended system-level data path is therefore:
+    subgraph VISION[视觉 FPGA 域]
+        CAP[ov5640_top<br/>RGB565 采集]
+        YCC[rgb2ycbcr<br/>Y/Cb/Cr]
+        VP[颜色分割<br/>形态学<br/>连通域/特征/角度]
+        INFO[目标信息<br/>X/Y/形状/角度]
+        V_SPI[SPI_slave]
+        DDR[AXI / DDR3<br/>帧缓冲]
+        HDMI[VGA / HDMI]
 
-```text
-OV5640 camera
-  -> RGB565 capture
-  -> YCbCr conversion
-  -> color threshold / binarization
-  -> morphology
-  -> two-pass 8-connected component processing
-  -> centroid / highest-point / area feature extraction
-  -> orientation estimation
-  -> object information transferred to the arm-side controller
-  -> coordinate conversion / inverse-kinematics lookup
-  -> arm state control / interpolation
-  -> five servo PWM outputs and air-pump control
+        CAM --> CAP --> YCC --> VP --> INFO --> V_SPI
+        VP --> DDR --> HDMI
+    end
+
+    subgraph ARM[机械臂 FPGA 域]
+        A_SPI[SPI_Shengteng]
+        LOC[send_location<br/>坐标/任务映射]
+        IK[逆运动学候选]
+        CTRL[状态控制<br/>线性插值]
+        ACT[五路舵机 PWM<br/>气泵控制]
+
+        A_SPI --> LOC --> IK --> CTRL --> ACT
+    end
+
+    V_SPI -. 板间 SPI .-> A_SPI
 ```
 
-The current visible image-side top and the ZIP arm-side top are not a single compile-complete tree. The arm-side `CICC_2025_Arm` top exposes `shape` and `color` inputs and an SPI port, while the visible `new/ov5640_hdmi.v` top exposes camera, DDR3, and HDMI interfaces but does not expose the object-information packet or instantiate the arm-side top. The board-to-board relationship is documented and an SPI bridge exists in the ZIP, but the complete cross-board build manifest is not present in the repository snapshot.
+图像端当前顶层 `ov5640_hdmi` 本身没有实例化机械臂端顶层；机械臂端 `CICC_2025_Arm` 也不是图像端顶层的子模块。因此上图表达的是技术资料和跨板 SPI RTL 所支持的系统关系，不是一个已经验证可以整体编译的单一 Verilog top。
 
-### Hardware and interfaces verified from source/documents
+## 3. 图像端当前活动 RTL 层次
 
-- OV5640 camera input with pixel clock, VSYNC, HREF, 8-bit camera data, SCCB clock/data, reset, and power-down signals: `new/ov5640_hdmi.v`.
-- RGB565 pixel handling and 640 x 480 parameters in the image-side top and simulation source.
-- DDR3 physical interface and an AXI-style read/write wrapper in `new/axi_ddr3_rw/`.
-- VGA timing and HDMI TMDS encode/serialize modules in `new/hdmi/`.
-- SPI master/slave/bridge sources in the ZIP. `SPI_Shengteng.v` packs/unpacks a 32-bit transaction containing 10-bit `VIP_X`, 10-bit `VIP_Y`, and a 9-bit `catch_4_angle` field.
-- Cyclone IV arm top outputs five PWM signals and one air-pump enable signal.
-- Clock names and domains visible in the source include camera pixel clock, system clock, 25 MHz/125 MHz/320 MHz image-side clocks, DDR UI clock, and 1 MHz/20 MHz/100 MHz arm-side clocks. Exact clock frequencies and CDC correctness are not independently verified here.
-
-## 4. RTL module hierarchy
-
-### 4.1 Image-side hierarchy in `new/`
+当前候选顶层为 [`rtl/top/vision/ov5640_hdmi.v`](../rtl/top/vision/ov5640_hdmi.v)，其可见实例关系如下：
 
 ```text
 ov5640_hdmi
-├── clk_wiz_0                         [external Xilinx-generated IP; not present]
-├── clk_wiz_1                         [external Xilinx-generated IP; not present]
+├── SPI_slave
+├── clk_wiz_0                    外部生成时钟 IP，源码未提供
+├── clk_wiz_1                    外部生成时钟 IP，源码未提供
+├── clk_wiz_2                    外部生成时钟 IP，源码未提供
 ├── ov5640_top
+│   ├── i2c_ctrl
 │   ├── ov5640_cfg
-│   ├── ov5640_data
-│   └── i2c_ctrl
+│   └── ov5640_data
+├── key_filiter_top
+│   └── key_filter × 4
 ├── rgb2ycbcr
 ├── connect_component_top
-│   ├── binarization
+│   ├── color_bin
+│   ├── erosion_7x7 × 2
+│   │   └── matrix_generate_7x7_1bit
+│   │       └── line_shift_ram_8bit_7x7
+│   │           └── ram_8x1024 × 6   外部生成 RAM IP
 │   ├── erosion
 │   │   └── matrix_generate_3x3_1bit
 │   │       └── line_shift_ram_8bit
+│   │           └── ram_8x1024 × 2   外部生成 RAM IP
 │   ├── dilation
-│   │   └── matrix_generate_3x3_1bit
-│   │       └── line_shift_ram_8bit
 │   ├── connect_8_area
-│   │   └── fifo_640x1              [external FIFO IP; not present]
+│   │   └── fifo_640x1               外部生成 FIFO IP
 │   ├── coordinate_centroid
+│   │   └── cordic_1 × 4             外部生成 CORDIC IP
 │   └── angle_find
-│       └── divide_angle             [external divider IP; not present]
+│       ├── cordic_0                 外部生成 CORDIC IP
+│       └── divide_angle × 2         外部生成除法 IP
+├── top_seg_dynamic
+│   └── seg_dynamic
+│       └── bcd_8421
 ├── axi_ddr_top
 │   ├── axi_ctrl
-│   │   ├── wr_fifo                  [external FIFO IP; not present]
-│   │   └── rd_fifo                  [external FIFO IP; not present]
+│   │   ├── wr_fifo                   外部生成 FIFO IP
+│   │   └── rd_fifo                   外部生成 FIFO IP
 │   ├── axi_master_write
 │   ├── axi_master_read
-│   └── MIG/DDR controller            [external generated IP; not present]
+│   └── axi_ddr                       外部 MIG/DDR IP
 ├── vga_ctrl
 └── hdmi_ctrl
-    ├── encode x3
-    └── par_to_ser x3
+    ├── encode × 3
+    └── par_to_ser × 4
+        ├── ODDR2
+        └── OBUFDS
 ```
 
-The image-processing pipeline order is explicit in `new/impress/connect_component_top.v`: `binarization` feeds `erosion`; the output then feeds `dilation`; the result feeds `connect_8_area`; the selected binary object feeds `coordinate_centroid`; and the centroid/highest-point/shape data feed `angle_find`.
+## 4. 图像处理流水线
 
-`new/sim_sobel_tb.v` is a separate BMP-file simulation harness. It generates a synthetic 640 x 480 camera-like timing stream and writes an output BMP. It contains hard-coded Windows paths and is not a self-contained reproducible simulation until its input/output paths and complete IP list are supplied.
+当前 `connect_component_top.v` 中直接连接的处理顺序是：
 
-### 4.2 Robotic-arm hierarchy from `CICC_2025_Arm.zip`
+```text
+OV5640 RGB565
+  → rgb2ycbcr
+  → color_bin（颜色阈值分割/二值化）
+  → erosion_7x7
+  → erosion_7x7
+  → erosion（3 × 3）
+  → dilation（3 × 3）
+  → connect_8_area（8 连通域）
+  → coordinate_centroid（质心/边界/面积/形状）
+  → angle_find（方向角）
+```
+
+### 主要模块作用
+
+| 模块 | 作用 |
+| --- | --- |
+| `ov5640_top` | OV5640 配置、像素时序和 RGB565 数据输出。 |
+| `rgb2ycbcr` | RGB 分量到 Y/Cb/Cr 的流式转换，并传递帧/行/数据使能。 |
+| `color_bin` | 根据颜色模式和 Y/Cb/Cr 阈值生成二值像素流，同时输出调参/状态信号。 |
+| `erosion_7x7` | 7 × 7 窗口腐蚀，当前活动链路中使用两次。 |
+| `erosion` / `dilation` | 3 × 3 窗口腐蚀和膨胀。 |
+| `connect_8_area` | 二值流的 8 连通域处理、标签/行缓存和目标区域输出。 |
+| `coordinate_centroid` | 像素计数、坐标累加、质心、最高/最低点、面积和形状相关信息。 |
+| `angle_find` | 使用特征坐标、CORDIC/除法 IP 和分段算术生成 `angle_data`。 |
+| `axi_ddr_top` | AXI 用户侧读写、DDR3 物理接口和帧缓存连接。 |
+| `vga_ctrl` / `hdmi_ctrl` | VGA 时序、TMDS 编码、差分串行化和 HDMI 输出。 |
+| `top_seg_dynamic` | 将调试/状态数据转换为数码管动态扫描输出。 |
+
+新框图已保存为 [`media/vision_top_block_diagram.png`](../media/vision_top_block_diagram.png)，图像内容和 hash 保持不变。
+
+## 5. 机械臂端 RTL 结构
+
+机械臂端顶层 [`rtl/top/robotic_arm/CICC_2025_Arm.v`](../rtl/top/robotic_arm/CICC_2025_Arm.v) 的可见结构为：
 
 ```text
 CICC_2025_Arm
-├── pll_ip                         [Intel/Altera generated IP]
-├── key / key_1M
+├── pll_ip                         外部/生成 PLL IP
+├── key × 3 / key_1M × 2
 ├── SPI_Shengteng
 │   └── SPI_master
 ├── send_location
-│   ├── color/shape counters and destination mapping
-│   ├── pixel-coordinate to arm-coordinate conversion
-│   └── packet/start sequencing
 └── robotic_arm_low_clk
     ├── catch
-    │   ├── inverse_kinematics_time or inverse_kinematics_cordic
-    │   ├── divide_ip / sqrt_ip or cordic_ATAN2 [IP/algorithm alternatives]
-    │   └── ROM data
+    │   ├── inverse_kinematics_cordic
+    │   └── rom_catch_data
     ├── laydown
-    │   └── laydown_location_rom
     ├── state_ctrl
     ├── mode_select
-    │   └── linear_interpolation
-    └── five pwm_servo_1M instances + air_pump control
+    ├── linear_interpolation
+    └── pwm_servo_1M × 5
 ```
 
-The Quartus file includes both `inverse_kinematics_cordic.v` and `inverse_kinematics_time.v` in its source assignments, but it also references two files absent from the extracted ZIP (`rtl/Top/CICC_2025_Arm_prime.v` and `rtl/arm/catch/inverse_kinematics.v`). The exact intended active implementation therefore needs owner confirmation before anyone claims a clean rebuild.
+机械臂端源码实际出现了 `SPI_Shengteng` 对 32-bit 数据的打包/解包、坐标输入、形状/颜色输入、逆运动学候选、状态控制、插值和五路 PWM/气泵输出。技术资料和 QSF 还表明这是一个 Cyclone IV 侧工程快照；完整原始 Quartus 工程仍以 ZIP 为准。
 
-## 5. Major module roles
+## 6. `CICC_2025_Arm.zip` 内容
 
-| Area | File(s) at audit time | Evidence-based role |
-|---|---|---|
-| Camera configuration | `new/ov5640/ov5640_cfg.v`, `i2c_ctrl.v` | Register-table/SCCB-style configuration and I2C control for OV5640. |
-| Camera pixel capture | `new/ov5640/ov5640_data.v`, `ov5640_top.v` | Consumes camera pixel clock/data and produces RGB565 data-valid/frame timing. |
-| RGB/YCbCr conversion | `new/impress/rgb2ycbcr.v`, `VIP_RGB888_YCbCr444.v` | Streaming color-space conversion variants; one source carries an explicit CrazyBingo header, the other carries a 正点原子/OpenedV header. |
-| Segmentation | `new/impress/binarization.v` | Per-pixel threshold selection driven by Y/Cb/Cr and a color-selection signal. |
-| Morphology | `new/impress/erosion/erosion.v`, `dilation.v`, matrix/line buffers | 3 x 3 neighborhood processing and erosion/dilation stages. |
-| Connected components | `new/impress/connect_8_area.v` | Two-pass/row-buffer style labeling and extraction of the selected label; source comments identify 8-connected processing. |
-| Feature extraction | `new/impress/coordinate_centroid.v` | Accumulates pixel count and coordinate sums, finds high/low points, classifies shape by area thresholds, and emits control/status flags. |
-| Orientation | `new/impress/angle_find.v` | Computes an angle from centroid/highest-point data using a divider and piecewise arithmetic. The divider instance is not present in the visible tree. |
-| DDR3/AXI | `new/axi_ddr3_rw/*.v` | User-side burst control, AXI read/write masters, and FIFO boundaries around a generated memory controller. |
-| Display | `new/hdmi/*.v` | VGA timing, TMDS encoding, and parallel-to-serial differential output. |
-| Arm-side communication | ZIP `rtl/SPI/*.v` | SPI mode-0 style master/slave and a 32-bit field bridge. |
-| Coordinate/mission sequencing | ZIP `rtl/Top/send_location.v` | Counts classified objects, maps destination positions, converts coordinates, and generates arm-side valid/start signals. |
-| Inverse kinematics | ZIP `rtl/arm/catch/inverse_kinematics_*.v`, `catch.v`, ROMs | Converts object coordinates/radius to ROM addresses and servo data; includes time-based and CORDIC alternatives in the snapshot. |
-| Arm sequencing | ZIP `rtl/arm/state_ctrl.v`, `mode_select.v`, `linear_interpolation.v` | FSM-driven catch/place sequence, interpolation mode selection, and stepwise PWM target changes. |
-| Actuation | ZIP `rtl/arm/pwm_servo_1M.v`, `robotic_arm_low_clk.v` | Five servo PWM generators and air-pump output orchestration. |
-| Simulation | `new/sim_sobel_tb.v` and ZIP `rtl/**/tb_*.v`, `test_*.v` | BMP/video-stream harnesses and arm/SPI module-level testbenches. Actual simulator/tool configuration is incomplete or snapshot-specific. |
+原始压缩包保留在 [`archive/CICC_2025_Arm.zip`](../archive/CICC_2025_Arm.zip)，未修改。检查到的内容类型包括：
 
-## 6. `CICC_2025_Arm.zip` contents
+- Quartus 17.1 项目文件、QSF/QPF/QWS 和原始相对路径配置；
+- 机械臂侧顶层、坐标、SPI、运动学、放置、状态控制、插值、按键和舵机 RTL；
+- Intel/Altera PLL、ROM、CORDIC/除法/开方等生成 IP 或 wrapper；
+- ModelSim/Quartus 数据库、波形、报告、编译输出、备份 RTL 和其他工程中间文件；
+- `atan2.qsys`、`atan2.sopcinfo` 等组件描述文件。
 
-The archive contains a full Quartus project snapshot, not only arm RTL:
+从 QSF 直接确认：family 为 `Cyclone IV E`，device 为 `EP4CE6F17C8L`，顶层实体为 `CICC_2025_Arm`。QSF 中仍引用缺失的 `rtl/Top/CICC_2025_Arm_prime.v` 和 `rtl/arm/catch/inverse_kinematics.v`，因此从 ZIP 提取的可浏览子集不能宣称是完整可编译工程。可浏览的源代码已经整理到 `rtl/`；生成数据库、编程文件、报告、波形和 `.bak` 等不进入活动源树。
 
-- 755 ZIP entries; approximately 80.9 MB after extraction.
-- Quartus project files: `CICC_2025_Arm.qpf`, `.qsf`, `.qws`, plus an `atan2.qsys`/`.sopcinfo` component snapshot.
-- Arm-side RTL under `rtl/arm/`, top-level and SPI sources under `rtl/Top/` and `rtl/SPI/`, and testbenches under `rtl/**/test` and `rtl/test`.
-- Intel/Altera IP source/configuration under `ip/`: PLLs, ROMs, divide, square-root, and CORDIC/atan2 related files. The generated files retain Intel copyright/legal notices.
-- Memory initialization files (`.mif`) for servo and destination ROMs.
-- Generated/build content: `db/`, `incremental_db/`, `output_files/`, `greybox_tmp/`, and ModelSim `rtl_work/`, `.wlf`, `.sdo`, generated `.vo`, transcripts, and other reports.
-- Backup files with `.bak` suffixes, including alternate or intermediate RTL versions.
+## 7. 第三方/reference/generated 分类
 
-The archive is therefore valuable as an original project backup but should not be exploded wholesale into the visible portfolio tree. The safe portfolio subset is the non-backup RTL/test source, the minimal Quartus project settings needed as documentation, and the IP descriptors/data required to explain the arm-side design. Build databases, programming images, waveform databases, and temporary directories should remain archive-only.
+### 明确的第三方或厂商材料
 
-## 7. Code provenance classification
+| 范围 | 证据与分类 |
+| --- | --- |
+| `rtl/camera/ov5640/`、图像端顶层 | 文件头包含 `Author: EmbedFire`、野火平台说明和相关网址；归为 EmbedFire/野火参考或适配基础设施。 |
+| `rtl/memory/axi_ddr3/` | 文件头包含 EmbedFire/野火信息；`axi_ddr_top` 引用 Xilinx MIG/AXI IP；归为参考/适配包装和外部 IP 依赖。 |
+| `rtl/display/hdmi/`、`rtl/display/seven_segment/` | 新上传源文件保留 EmbedFire/野火信息；归为参考/适配显示基础设施。 |
+| `rtl/vision/color_space/rgb2ycbcr.v` | 文件头包含 正点原子/OpenEDV 支持和版权文字；归为第三方参考/适配代码。 |
+| `rtl/vision/color_space/reference/VIP_RGB888_YCbCr444.v` | 文件内含 CrazyBingo Corporation copyright、author 和授权说明；归为第三方 reference。 |
+| `rtl/vendor/altera_ip/`、`rtl/vendor/intel_ip/` | 包含 Altera/Intel 生成 wrapper、PLL/ROM/CORDIC 等材料；保留原法律声明。 |
+| `rtl/display/hdmi/par_to_ser.v` | 使用 Xilinx `ODDR2`、`OBUFDS` 原语；属于器件/IP 依赖，不代表完整生成工程已纳入。 |
 
-This classification is deliberately conservative. “Probable project-specific” is not the same as “confirmed personally authored.”
+### 可能属于项目代码或适配代码，但个人作者未确认
 
-### 7.1 Explicit third-party/reference evidence
+`color_bin`、活动连通域、质心、角度、3 × 3/7 × 7 形态学、按键控制、`connect_component_top`、机械臂坐标/控制和 SPI 项目连接代码没有足够的文件级证据证明当前仓库所有者本人独立原创。它们只能标记为“可能为项目代码或适配代码”。README 中保留了待作者填写的个人贡献 TODO。
 
-| Files | Evidence | Portfolio treatment |
-|---|---|---|
-| `new/axi_ddr3_rw/*.v` | File headers explicitly say `Author: EmbedFire`, identify 野火/EmbedFire URLs; `axi_ddr_top.v` also mentions a Xilinx MIG IP. | Keep headers. Mark as EmbedFire/reference-adapted infrastructure; do not present as personal original RTL. |
-| `new/hdmi/*.v` | File headers explicitly say EmbedFire/野火. | Keep headers. Mark as reference/adapted display infrastructure. |
-| `new/ov5640/*.v` and the header of `new/ov5640_hdmi.v` | File headers explicitly say EmbedFire/野火. | Keep headers. Mark as reference/adapted camera/integration infrastructure. |
-| `new/impress/VIP_RGB888_YCbCr444.v` | Contains `Copyright (C) 2011-20xx CrazyBingo Corporation` and `Author: CrazyBingo`. | Keep the proprietary notice intact; place in the attribution ledger and do not claim authorship. |
-| `new/impress/rgb2ycbcr.v` | Header identifies 正点原子/OpenedV support and copyright text. | Preserve the header and classify as third-party/reference-derived. |
-| `new/impress/erosion/Line_Shift_RAM_1Bit.v` | Quartus/Altera `altshift_taps` generated-IP legal notice. | Treat as generated/vendor IP; do not edit behavior or header. |
-| ZIP `ip/**` and generated IP wrappers | Intel/Altera legal notices, `altera_mf`, Quartus 17.1 metadata, and generated CORDIC/PLL/ROM/divide/sqrt structures. | Keep as vendor/generated IP only when needed for explanation/build context; preserve notices and do not call it personal RTL. |
+## 8. 备选版本、重复文件和生成物
 
-### 7.2 Probable adapted or project-specific code requiring confirmation
+- `rtl/vision/variants/newbe/`：保留 `connect_component_top` 和更多注释实验内容。
+- `rtl/vision/variants/tiaoshi/`：保留调试/阈值调整版 `color_bin`、`key_filiter_top`。
+- `rtl/top/vision/variants/ov5640_hdmi_3.v`：保留同名的旧/简化顶层。
+- `rtl/vision/segmentation/variants/binarization.v`：保留未进入活动链路的二值化候选。
+- `rtl/vision/color_space/variants/rgb2yuv.v`：保留未启用的颜色转换候选。
+- `rtl/vision/connected_components/variants/impress_erosion/connect_8_area.v`：保留另一份同名连通域实现。
+- `rtl/vision/morphology/variants/7x7/dilation_7x7.v`：保留未进入当前链路的 7 × 7 膨胀候选。
 
-- `new/impress/dilation.v`, `erosion.v`, `matrix_generate_3x3_1bit.v`, `line_shift_ram_8bit.v`, and the active `connect_8_area.v` have naming/comment patterns consistent with common FPGA video-processing examples, but their authorship is not proven by a complete header. Record them as **probable adapted/project-specific; owner confirmation required**.
-- `new/impress/binarization.v`, `coordinate_centroid.v`, `angle_find.v`, and `connect_component_top.v` implement the algorithmic structure described in the technical document and have no positive third-party attribution in their headers. They are **probable project-specific**, but this audit does not establish which team member wrote them or whether any portions were adapted.
-- ZIP `rtl/arm/**`, `rtl/Top/CICC_2025_Arm.v`, `send_location.v`, and `rtl/SPI/**` contain the project’s arm/control/integration naming and no explicit external-source header in the inspected files. They are **probable project-specific**, not confirmed personally authored. The user should confirm ownership before the README uses first-person claims.
-- ZIP `rtl/Top/ov5640_hdmi.v` carries an EmbedFire header and is not part of the `CICC_2025_Arm.qsf` active source list. It should not be used as evidence of original arm-side RTL.
+在确认以下内容为重复或生成物后没有纳入最终活动树：
 
-### 7.3 What cannot be inferred
+1. 新上传 `SPI_slave.v` 与现有 `rtl/inter_board/spi/SPI_slave.v` 内容等价，保留单一公共实现。
+2. 新上传 Altera `Line_Shift_RAM_1Bit.v` 与 `rtl/vendor/altera_ip/Line_Shift_RAM_1Bit.v` 字节级重复，保留已标注 vendor 版本。
+3. 新上传 `tiaoshi/key_filter.v` 与活动 `key_filter.v` 内容等价，不重复保留。
+4. `xsim.dir/work/*.sdb`、`work.rlx`、`xvlog.log`、`xvlog.pb` 是 XSim/XVlog 生成物，不进入活动 Git 源树。
 
-- The Git author, repository owner, team name, and absence of a third-party header do not prove personal authorship.
-- The technical document describes team-level work and does not identify file-by-file ownership.
-- No license text was found that automatically relicenses vendor/reference sources under the root MIT `LICENSE`; the root license must not be treated as overriding embedded third-party notices.
+原始 ZIP 未修改，因此重复排除不会使原始工程快照失去溯源来源。
 
-## 8. Files safe to move or import after this audit
+## 9. 编码、乱码和源文件完整性
 
-The following operations are organization-only and do not require RTL edits, provided all project references are updated or the source is explicitly documented as a snapshot:
+新上传图像端源文件原先混用了 UTF-8、GB18030、CRLF/NEL 行尾和损坏的中文注释字节。活动/备选的 41 个图像端 Verilog 文件已统一为 UTF-8/LF；第三方法律声明和 `rtl/vendor/` 生成文件未被改写。编码整理只针对文本表示，不改变模块名、接口、参数、时序结构或算法表达式。
 
-1. Move the current `new/` files into functional `rtl/` and `sim/` subdirectories with `git mv`; preserve file bytes and attribution headers.
-2. Move `c6.png` to a semantic `media/system_overview.png` name without changing its pixels.
-3. Move the two PDFs to semantic names under `docs/` without editing their content.
-4. Move the original `CICC_2025_Arm.zip` to `archive/` as an unchanged backup after the selected arm RTL has been imported for browsing.
-5. Import non-`.bak` arm/SPI/top test source from the extracted ZIP into browsable `rtl/robotic_arm`, `rtl/inter_board`, and `sim/robotic_arm` directories. These are new tracked files, not replacements for existing source.
-6. Import the minimal vendor IP descriptors, wrappers, and `.mif` data as a clearly labeled vendor/IP subtree. Keep the generated legal notices unchanged.
-7. Add documentation and an attribution ledger. These do not change the RTL implementation.
+乱码主要出现在旧中文注释或注释中的损坏字节，不在 RTL 运算 token 中。本轮已执行：
 
-The duplicate `new/impress/erosion/connect_8_area.v` and the unused/generated `Line_Shift_RAM_1Bit.v` should not be silently deleted. They can be moved to a clearly labeled legacy/vendor subtree or left represented only by the original archive if their inclusion would create duplicate module definitions.
+- 所有当前图像端 Verilog 文件 UTF-8 解码检查；
+- 空文件、缺少 `endmodule` 和基本模块声明检查；
+- 当前工作树与编码整理前暂存版本的注释剥离 token 对比；
+- 不安装大型 FPGA 工具链，不把静态检查写成综合/仿真通过。
 
-## 9. Files and artifacts that should not be modified
+## 10. 可以安全移动与不应修改的文件
 
-- Any Intel/Altera or Xilinx generated IP wrapper, legal header, `.qip`, `.qsys`, `.sopcinfo`, `.mif`, or generated VHDL required to explain the original project.
-- The `db/`, `incremental_db/`, `output_files/`, `greybox_tmp/`, and ModelSim waveform/library/report directories inside the original ZIP. They are generated build artifacts, not hand-maintained RTL; retain them only through the original archive unless there is a specific reproducibility reason.
-- `.bak` files from the original ZIP. They may be useful for provenance, but they should not be promoted to active source or used to infer the final implementation without owner confirmation.
-- Existing RTL timing, combinational/sequential logic, module interfaces, reset polarity, and clocking behavior. This phase permits path/name organization only.
+### 可以按语义目录移动
 
-## 10. Current repository problems to track
+- `ov5640/*.v` → `rtl/camera/ov5640/`；
+- 图像端顶层 → `rtl/top/vision/`，旧顶层进入 `variants/`；
+- `impress` 中活动的颜色、分割、形态学、连通域、特征、角度模块 → 对应 `rtl/vision/` 子目录；
+- AXI/DDR3、HDMI/VGA、数码管 → `rtl/memory/`、`rtl/display/`；
+- 图像仿真 → `sim/vision/`；
+- `VIP_TOP.png` → `media/vision_top_block_diagram.png`。
 
-### Presentation and organization
+所有实际文件移动使用 `git mv`；对内容不同的旧图像端文件没有当作普通 rename 覆盖，而是移动到 `archive/previous_image_processing/` 保存。
 
-- `new/` is a semantic dead end for recruiters; it does not distinguish camera, vision, memory, display, arm control, IP, and simulation.
-- The README is a short link list and uses `/c6.png`, which is not a semantic repository-relative media path.
-- The arm-side source is hidden in a ZIP, so the system’s most interview-relevant control RTL cannot be browsed without downloading/extracting it.
-- Technical documents and media have non-semantic Chinese/generic root-level names.
-- There is no attribution ledger, portfolio metadata recommendation, or explicit build-status statement.
+### 不应在本轮修改
 
-### Build/integration completeness
+- 任何 RTL `always`、`assign`、模块名、端口、参数、位宽、IP 接口和算法表达式；
+- Xilinx/Intel generated IP、器件原语及源文件已有的 copyright/license header；
+- 原始 `archive/CICC_2025_Arm.zip`；
+- 仍有溯源价值的 variant、技术报告、比赛 PPT 和演示材料。
 
-- The visible image-side top references `clk_wiz_0`, `clk_wiz_1`, `mig`/DDR infrastructure, `wr_fifo`, `rd_fifo`, `fifo_640x1`, and `divide_angle` without matching source in the visible tree.
-- `connect_8_area` is defined in both `new/impress/connect_8_area.v` and `new/impress/erosion/connect_8_area.v`. Compiling both files together would create a duplicate module-name conflict; the active top appears to target the first file.
-- `new/ov5640_hdmi.v` declares `ram_wr_data` as 24 bits while the active `connect_component_top` declares its corresponding output as 30 bits. This is a static interface-width review item, not a change to make during organization.
-- `new/impress/angle_find.v` contains a `divide_angle` instance with an undeclared `aclk` signal in the visible source. It also uses chained-comparison syntax that needs RTL-owner review; no fix is made in this pass.
-- `new/sim_sobel_tb.v` contains hard-coded `F:\\FPGA-EP4CE10F17C8\\...` BMP paths and depends on files outside the repository.
-- The Quartus QSF inside the ZIP references missing `rtl/Top/CICC_2025_Arm_prime.v` and `rtl/arm/catch/inverse_kinematics.v`. The ZIP is not a verified clean-build package.
-- The extracted arm project contains both time-based and CORDIC inverse-kinematics alternatives, and the active choice is not unambiguously documented by the snapshot.
+## 11. 当前仓库问题
 
-### Encoding and comments
+1. 图像端缺失完整 Vivado project、XDC/时钟约束以及 `clk_wiz_0/1/2` 的配置。
+2. `axi_ddr`、`wr_fifo`、`rd_fifo`、`fifo_640x1`、`ram_8x1024`、`cordic_0/1`、`divide_angle` 的匹配生成 IP/配置不在当前可浏览源树中。
+3. 当前图像端顶层中 `Dout`、`locked`、`locked1`、`clk_320m` 等信号需要结合原始工程确认是否有意使用隐式 net；本轮不修复。
+4. `angle_find` 需要核对 CORDIC/除法 IP 的 latency、位宽、结果有效信号和角度算术；本轮不修改。
+5. `coordinate_centroid` 的除法、坐标累加、边界和面积/形状阈值需要原始波形或仿真确认；本轮不修改。
+6. 连通域模块的行边界、帧边界和标签数量边界需要仿真确认；本轮不修改。
+7. 活动和 variant 中存在同名模块，工程 file list 必须显式选择版本。
+8. `sim/vision/sim_sobel_tb.v` 使用硬编码 Windows BMP 路径并依赖外部文件，当前不是可直接复现的独立 testbench 工程。
+9. Git 提交作者、文件 header 和技术报告不能单独证明个人贡献；需要仓库所有者补充队友/参考工程/个人负责范围。
 
-- Several current files are GBK/GB18030 encoded while others are UTF-8; this is why some comments render as mojibake in a UTF-8 terminal.
-- `new/sim_sobel_tb.v` is encoded as GB18030 while other tracked RTL is UTF-8; it renders as mojibake when a UTF-8-only viewer reads it. The source can be normalized to UTF-8 without changing its decoded comments or RTL tokens. Literal replacement characters were observed in some ZIP test sources and should remain an explicit review item rather than being silently reconstructed.
-- Reference/vendor headers must not be “cleaned up” in a way that removes their attribution. Any comment-only cleanup must be limited, UTF-8-safe, and behavior-neutral.
+详细的未修复项目见 [`docs/rtl_review.md`](rtl_review.md)，图像端新上传专项证据见 [`docs/image_processing_reaudit.md`](image_processing_reaudit.md)。
 
-## 11. Proposed post-audit portfolio structure
+## 12. 审计结论
 
-This was the structure selected for the next organization phase; it is based on actual dependencies rather than a mechanical copy of a template:
+仓库现在适合以 portfolio 方式浏览：招聘方可以从 README 进入完整系统照片、图像端框图、活动视觉链路、机械臂控制 RTL、技术报告和第三方归因说明；关键图像处理代码不再只能通过 ZIP 或含义不清的 `new/` 目录查看。
 
-```text
-rtl/
-├── top/
-│   ├── vision/                  # image-side top-level integration
-│   └── robotic_arm/             # Cyclone IV arm-side top-level integration
-├── camera/ov5640/               # OV5640 capture/configuration
-├── vision/
-│   ├── color_space/
-│   ├── segmentation/
-│   ├── morphology/
-│   ├── connected_components/
-│   ├── feature_extraction/
-│   └── angle_estimation/
-├── memory/axi_ddr3/             # AXI/controller wrapper and FIFO boundary
-├── display/hdmi/                # VGA/HDMI timing and TMDS
-├── inter_board/spi/             # arm-side SPI bridge
-├── robotic_arm/
-│   ├── kinematics/
-│   ├── placement/
-│   ├── control/
-│   └── servo/
-└── vendor/intel_ip/             # generated IP/config/data, clearly labeled
-sim/
-├── vision/
-└── robotic_arm/
-docs/
-├── repository_audit.md
-├── rtl_review.md
-├── technical_report.pdf
-├── competition_presentation.pdf
-└── github_metadata.md
-media/
-third_party/
-hardware/quartus/
-archive/
-```
-
-The structure intentionally keeps the algorithmic RTL visible while making reference/vendor material and the original full snapshot easy to identify.
-
-## 12. Audit decision
-
-The repository is suitable for a documentation-and-organization pass, not for an algorithm rewrite or a claim of clean standalone reproducibility. The next pass may rename/move files, import the selected arm-side source, add documentation, add semantic media names, and make narrowly scoped comment/encoding cleanup. It must not change RTL behavior, repair the review findings, remove original materials, or claim personal authorship where the evidence is incomplete.
-
-## 13. Post-audit organization record
-
-The organization pass following this audit performed the following bounded operations:
-
-- Moved the original `new/` RTL into functional `rtl/` subtrees with `git mv`; moved the image, PDFs, and ZIP with `git mv` as well.
-- Imported 35 non-backup arm/SPI/top RTL and test sources from the extracted ZIP for browsing. The ZIP's duplicate/reference `rtl/Top/ov5640_hdmi.v` was not duplicated into the active tree because the repository already has the visible image-side wrapper; it remains available in the unchanged archive.
-- Imported 31 selected arm-side IP/configuration files byte-for-byte into `rtl/vendor/intel_ip/` and `hardware/quartus/`. Quartus build databases, waveforms, reports, programming images, and `.bak` files remain archive-only.
-- Normalized visible hand-maintained RTL/test text to UTF-8/LF and removed trailing whitespace without changing the comment-stripped RTL token stream. The generated `Line_Shift_RAM_1Bit.v`, vendor/IP subtree, and Quartus snapshot were preserved as supplied.
-- Added the portfolio README, attribution ledger, GitHub metadata proposal, review notes, ignore/attribute rules, and archive/configuration explanations.
-
-The final state still requires owner confirmation for personal contribution claims, the active inverse-kinematics alternative, and the missing project/IP files identified in `docs/rtl_review.md`.
+本次整理的结论是基于实际源文件和实例连接的结构性结论，不是综合、时序或仿真结果。仓库保留完整 Git 历史，当前不 commit、不 push，等待仓库所有者 review 后再决定是否提交。

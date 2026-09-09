@@ -43,11 +43,13 @@ servo-control
 
 ## Portfolio positioning
 
-The current README is aimed at FPGA, RTL, and Digital IC front-end reviewers. The most searchable concepts are the concrete interfaces and algorithms evidenced in the source: OV5640 capture, RGB/YCbCr conversion, binary segmentation, morphology, 8-connected components, centroid/shape/orientation features, AXI/DDR3 buffering, HDMI output, SPI integration, FSM control, inverse-kinematics lookup, and servo PWM.
+The current README is aimed at FPGA, RTL, and Digital IC front-end reviewers. The most searchable concepts are the concrete interfaces and algorithms evidenced in the source: OV5640 capture, RGB/YCbCr conversion, color-threshold segmentation, 7x7 and 3x3 morphology, 8-connected components, centroid/shape/orientation features, AXI/DDR3 buffering, HDMI output, SPI integration, FSM control, inverse-kinematics alternatives, and servo PWM.
+
+The browsable image-side top-level diagram is [`media/vision_top_block_diagram.png`](../media/vision_top_block_diagram.png). The active image-processing chain and missing generated-IP dependencies are documented in [`docs/image_processing_reaudit.md`](image_processing_reaudit.md); these should be reviewed before making build or performance claims.
 
 ## Suggested GitHub settings after owner review
 
 - Keep the repository public only if the competition materials, third-party headers, and vendor/IP redistribution terms permit it.
 - Add the repository description and topics above manually in GitHub after confirming the proposed name.
-- Use `media/system_overview.png` as the social-preview candidate only if the image is cleared for public portfolio use.
+- Use `media/system_overview.jpg` as the social-preview candidate only if the image is cleared for public portfolio use; the image-side block diagram is available as an additional documentation asset.
 - Keep the original project archive available for provenance, but point recruiters to the browsable `rtl/` and `docs/` directories first.

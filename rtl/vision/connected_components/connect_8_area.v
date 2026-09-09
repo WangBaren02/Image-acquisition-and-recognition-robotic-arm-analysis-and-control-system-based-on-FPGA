@@ -1,8 +1,8 @@
-module	connect_8_area //八连通算法与两遍扫描法
+module	connect_8_area
 #(
 	parameter	IMG_WIDTH 	= 640,
 	parameter	IMG_HEIGHT 	= 480,
-	parameter	LABEL_BITS  = 4	 ,
+	parameter	LABEL_BITS  = 5	 ,
 	parameter   BACK_NUM	= 1
 )
 (
@@ -20,7 +20,7 @@ module	connect_8_area //八连通算法与两遍扫描法
 	output	reg				bin_out
 
 );
-//时序同步的中间变量
+
 reg			href_in_d0		;
 reg			href_in_d1		;
 reg			href_in_d2		;
@@ -43,41 +43,45 @@ reg			pixel_in_d0		;
 reg			pixel_in_d1		;
 
 reg			pixel_in_d2		;
+//鍍忕礌璁℃暟鍣�
+reg		[19:0]	cnt_pixel	;
 
 
+wire		hrefd1_neg_flag ;
+wire		vsyncd1_pos_flag;
 
-wire		hrefd1_neg_flag ;//行同步信号下降沿
-wire		vsyncd1_pos_flag;//场同步信号上升沿
-//行场计数器
 reg	[9:0]	x_cnt			;
 reg	[9:0]	y_cnt			;
 
+reg	[9:0]	back_cnt		;
+reg	[9:0]	back_cnt_r		;
 
-//行场计数器延迟一个时钟周期
+reg	[3:0]	href_obbject	;
+
 reg	[9:0]	x_cnt_r			;
 reg	[9:0]	y_cnt_r			;
 
 
 
-reg	[LABEL_BITS - 1:0]	label_href_max	;//取一行标签的最大值
-wire	[LABEL_BITS - 1:0]	current_label	;//给新物体打的标签
-reg	[LABEL_BITS - 1:0]	global_label	;//全局最大标签
-reg	[LABEL_BITS - 1:0]	three_min		;//当前像素上方三个像素非零最小值
+reg	[LABEL_BITS - 1:0]	label_href_max	;
+wire	[LABEL_BITS - 1:0]	current_label	;
+reg	[LABEL_BITS - 1:0]	global_label	;
+reg	[LABEL_BITS - 1:0]	three_min		;
 
-(* ramstyle = "M9K" *) reg	[LABEL_BITS - 1:0]	current_line	[0 : IMG_WIDTH - 1];//当前行标签
-(* ramstyle = "M9K" *) reg	[LABEL_BITS - 1:0]	pass_line		[0 : IMG_WIDTH - 1];//上一行标签
-
-
+(* ramstyle = "M9K" *) reg	[LABEL_BITS - 1:0]	current_line	[0 : IMG_WIDTH - 1];
+(* ramstyle = "M9K" *) reg	[LABEL_BITS - 1:0]	pass_line		[0 : IMG_WIDTH - 1];
 
 
-wire			fifo_dout		;//读fifo
-//循环变量
+
+
+wire			fifo_dout		;
+
 integer	i;
 integer	j;
+integer	n;
 
 
 
-//行场信号时序同步
 always@(posedge	clk or negedge	rst_n)
 	if(rst_n == 1'b0)
 		begin
@@ -115,11 +119,11 @@ always@(posedge	clk or negedge	rst_n)
 		pixel_in_d1         <=	pixel_in_d0	;
 		pixel_in_d2         <=	pixel_in_d1	;
 		end
-//取行信号下降沿和场信号上升沿
+
 assign	hrefd1_neg_flag  = (~href_in_d0) &	href_in_d1;
 assign	vsyncd1_pos_flag = vsync_in_d0 & (~vsync_in_d1);
 
-//行场计数器
+
 always@(posedge	clk or negedge	rst_n)
 	if(rst_n == 1'b0)
 		begin
@@ -140,7 +144,7 @@ always@(posedge	clk or negedge	rst_n)
 		begin
 			x_cnt <=  x_cnt + 10'd1;
 		end
-//行场计数器打拍
+
 always@(posedge	clk or negedge	rst_n)
 	if(rst_n == 1'b0)
 		begin
@@ -153,70 +157,123 @@ always@(posedge	clk or negedge	rst_n)
 			y_cnt_r <= y_cnt;
 		end
 
-//找到当前行的最大值
+//鍍忕礌璁℃暟鍣�
+always@(posedge clk or negedge rst_n)
+	if(rst_n == 1'b0)
+		cnt_pixel <= 1'd0;
+	else	if(vsyncd1_pos_flag)
+		cnt_pixel <= 1'd0;
+	else	if(de_in && pixel_in)
+		cnt_pixel <= cnt_pixel + 1'd1;
+
+
+
+//琛屽悗鏅鏁板櫿
+always@(posedge	clk or negedge	rst_n)
+	if(rst_n == 0 || vsyncd1_pos_flag)
+		back_cnt <= 9'd0;
+	else	if(hrefd1_neg_flag)
+		back_cnt <= 9'd0;
+	else	if(de_in && pixel_in)
+		back_cnt <= 9'd0;
+	else	if(de_in && pixel_in == 1'd0)
+		back_cnt	<= back_cnt + 1'd1;
+
+//琛屽悗鏅鏁板櫒鎵撴媿
+always@(posedge	clk or negedge	rst_n)
+	if(rst_n == 0)
+		back_cnt_r <= 9'd0;
+	else
+		back_cnt_r	<= back_cnt;
+
+//鍗曡鐗╿綋href_obbject	;(宸甦e0涓夸釜鏃堕挓鍛ㄦ溿)
+always@(posedge	clk or negedge	rst_n)
+	if(rst_n == 0 || vsyncd1_pos_flag)
+		href_obbject	<= 4'd0;
+	else	if(hrefd1_neg_flag)
+		href_obbject	<= 4'd0;
+	else	if(back_cnt_r > back_cnt)
+		href_obbject	<= href_obbject + 1'd1;
+
+
+
+
+
 always@(posedge	clk or negedge	rst_n)
 	if(rst_n == 1'b0)
 		label_href_max	<= 4'd0;
 	else	if(vsyncd1_pos_flag)
 		label_href_max	<= 4'd0;
-	else	if(x_cnt == 10'd479)
+	else	if(x_cnt == 10'd637)
 		label_href_max	<= 4'd0;
 	else	if(hrefd1_neg_flag)
 		for	(i = 0 ; i < IMG_WIDTH - 1 ;i = i + 1)
 			if(current_line[i] > label_href_max)
 				label_href_max <= current_line[i];
 
-//找到给物体打的最大标签
+
 always@(posedge	clk or negedge	rst_n)
 	if(rst_n == 0 || vsyncd1_pos_flag )
 		global_label	<= 1'b0;
-	else	if(global_label < label_href_max)
+	else   if(global_label < 4'd4)    begin
+	   if(global_label < label_href_max)
 		global_label	<= label_href_max;
+	end
+	else   if(global_label  >= 4'd4)
+		global_label	<= 4'd6;
 	else
-		global_label	<= global_label;
+	   global_label    <= global_label;
 
 
 
 
-//给新物体打的标签
-assign	current_label = global_label + 1;
 
-//提前一个时钟周期找到当前像素对应的最小值//上面三个像素的标签永远小于等于左边的标签
-always@(posedge	clk or negedge	rst_n)//three_min要与de_in_0同步，这样抓取的x_cnt与three_min才同步
+//assign	current_label = global_label + 1;
+assign	current_label = ((cnt_pixel <= 12'd640) && (href_obbject == 1'd1) && (global_label == 2'd0))? 1'd1 : global_label + 2;
+
+//鎻愬墠涓夸釜鏃堕挓鍛ㄦ湡鎵惧埌褰撳墠鍍忕礌翵瑰簲鐨勬溈灏忓靿//涓婇潰涓変釜鍍忕礌鐨勬爣绛炬案杩滃皬浜庣瓑浜庡乏杈圭殑鏍囩
+always@(posedge	clk or negedge	rst_n)//three_min瑕佷笌de_in_0鍚屾锛岃繖鏍锋姄鍙栫殑x_cnt涓巘hree_min鎵嶅悓姝￿
 	if(rst_n == 1'b0)
 		three_min <= 4'd1;
-	else	if(de_in && pixel_in)begin//此时x_cnt是前一个像素的坐标
-		if(pass_line[x_cnt + 2'd2] !=0)begin
-			three_min <=pass_line[x_cnt + 2'd2];
-			for(j = 0; j <2 ; j = j+1)begin
-				if(pass_line[x_cnt + j]!=0)begin
-					if(three_min >  pass_line[x_cnt + j])
-						three_min	<= pass_line[x_cnt + j];
+	else	if(de_in && pixel_in)begin//姝ゆ椂x_cnt鏄墠涓夸釜鍍忕礌鐨勫潗鏍�
+		if(pass_line[x_cnt + 2'd2] != 0)begin
+			if(pass_line[x_cnt + 3'd5] == 1'b1)
+				//three_min <=pass_line[x_cnt];
+				three_min	<= pass_line[x_cnt +3'd5];
+			else	if(pass_line[x_cnt - 3'd5] == 1'b1)
+				three_min	<= pass_line[x_cnt - 3'd5];
+			else	begin
+				three_min <= pass_line[x_cnt + 2'd2];
+				for(j = 0; j <2 ; j = j+1)begin
+					if(pass_line[x_cnt + j]!=0)begin
+						if(three_min >  pass_line[x_cnt + j])
+							three_min	<= pass_line[x_cnt + j];
 				end
-
 			end
 		end
+	end
 		else	if(pass_line[x_cnt + 2'd1] !=0)begin
-			three_min <= pass_line[x_cnt + 2'd1];
-			for(j = 0; j <1 ; j = j+1)begin
-				if(pass_line[x_cnt + j] != 0)begin
-					if(three_min > pass_line[x_cnt])
-						three_min <=  pass_line[x_cnt];
+				if(pass_line[x_cnt + 3'd5] == 1'b1)
+					three_min <= pass_line[x_cnt + 3'd5];
+				else
+					three_min <= pass_line[x_cnt + 2'd1];
+					if(pass_line[x_cnt] != 0)begin
+						if(three_min > pass_line[x_cnt])
+							three_min <=  pass_line[x_cnt];
+					end
 				end
-			end
-		end
 		else	if(pass_line[x_cnt] !=0)
-			three_min <= pass_line[x_cnt];
+			//if(pass_line[x_cnt + 2'd3] == 1'd1)
+				three_min <= pass_line[x_cnt];
+		else
+			three_min <= 4'd0;
 	end
 	else
-		three_min	<= three_min;
+		three_min	<= 4'd0;
 
-
-
-
-//标签更新逻辑
+//瑕佷箞涓嶅姞鍥炴函锛岃涔堬紝璁╅偅涓鍓嶄竴涓�
 always@(posedge	clk or negedge	rst_n)
-	if(rst_n == 1'b0)//复位
+	if(rst_n == 1'b0)
 		begin
 
 		for(i = 0 ; i < IMG_WIDTH - 1 ;i = i + 1)begin
@@ -224,7 +281,7 @@ always@(posedge	clk or negedge	rst_n)
 			pass_line[i]	<= 4'd0;
 			end
 		end
-	else	if(vsyncd1_pos_flag)//帧复位
+	else	if(vsyncd1_pos_flag)
 		begin
 
 		for(i = 0 ; i < IMG_WIDTH - 1 ;i = i + 1)begin
@@ -236,26 +293,54 @@ always@(posedge	clk or negedge	rst_n)
 
 		if(pixel_in_d0 == 1'b1)	begin
 			if(pass_line[x_cnt - 1'd1] == 1'd0 && pass_line[x_cnt] == 1'd0 && pass_line[x_cnt  + 1'd1] == 1'd0 && current_line[x_cnt - 1'd1] == 1'd0)
-				current_line[x_cnt]	<= current_label;//遇到新物体给最大值+1
+				current_line[x_cnt]	<= current_label;
 			else	if(pass_line[x_cnt - 1'd1] == 1'd0 && pass_line[x_cnt] == 1'd0 && pass_line[x_cnt  + 1'd1] == 1'd0 && current_line[x_cnt - 1'd1] != 1'd0)begin
-				current_line[x_cnt]	<= current_line[x_cnt - 1'd1];//头上三个没标签则给左边
+				current_line[x_cnt]	<= current_line[x_cnt - 1'd1];
+				//if(current_line[x_cnt - 1'd1] != 0)
+				//	current_line[x_cnt - 1'd1] <= three_min;
 			end
-			else begin//把头上三个最小的非零标签赋值给当前像素
+			else begin
 				current_line[x_cnt]	<= three_min;
+
+				if(pass_line[x_cnt - 1'd1] != 0)
+					pass_line[x_cnt - 1'd1] <= three_min;
+				if(pass_line[x_cnt] != 0)
+					pass_line[x_cnt] <= three_min;
+				//if(pass_line[x_cnt - 2'd2] != 0)
+				//	pass_line[x_cnt - 2'd2] <= three_min;
+				//if(pass_line[x_cnt - 2'd3] != 0)
+				//	pass_line[x_cnt - 2'd3] <= three_min;
+				//if(three_min == 1'd1)
+				//	begin
 				if(current_line[x_cnt - 1'd1] != 0)
-					current_line[x_cnt - 1'd1] <= three_min;//往左回溯1次
+					current_line[x_cnt - 1'd1] <= three_min;
 				if(current_line[x_cnt - 2'd2] != 0)
 					current_line[x_cnt - 2'd2]	<= three_min;
 				if(current_line[x_cnt - 2'd3] != 0)
-					current_line[x_cnt - 2'd3]	<= three_min;//往左回溯三次
+					current_line[x_cnt - 2'd3]	<= three_min;
+				if(current_line[x_cnt - 3'd4] != 0)
+					current_line[x_cnt - 3'd4]	<= three_min;
+				if(current_line[x_cnt - 3'd5] != 0)
+					current_line[x_cnt - 3'd5]	<= three_min;
+				//if(pass_line[x_cnt+2'd1] != 0)
+				//	pass_line[x_cnt+2'd1] <= three_min;
+					//end
+				//if(pass_line[x_cnt - 3'd4] != 0)
+				//	pass_line[x_cnt - 3'd4] <= three_min;
+
+				//if(pass_line[x_cnt+2'd2] != 0)
+				//	pass_line[x_cnt+2'd2] <= three_min;
+
+
 			end
-		end else	if(pixel_in_d0 == 1'b0)//黑色后景标签给0
+		end else	if(pixel_in_d0 == 1'b0)
 			current_line[x_cnt]	<= 4'd0;
 		end
-	else	if(hrefd1_neg_flag)
-		for(i = 0 ; i < IMG_WIDTH - 1 ; i = i + 1)
+	else	if(hrefd1_neg_flag)	begin
+		for(i = 0 ; i < IMG_WIDTH - 1 ; i = i + 1)	begin
 			pass_line[i] <= current_line[i];
-
+			end
+		end
 
 fifo_640x1 fifo_640x1_inst (
   .clk(clk),      // input wire clk
@@ -272,7 +357,7 @@ fifo_640x1 fifo_640x1_inst (
 
 
 
-//输出标签为1的二值化图像
+
 always@(posedge clk or negedge rst_n)
 	if(rst_n == 1'b0)
 		bin_out <= 1'b0;

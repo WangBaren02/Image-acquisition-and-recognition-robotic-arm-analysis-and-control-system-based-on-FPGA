@@ -30,8 +30,8 @@ reg [ 7:0] vip_pixel_data_1 [0:921600];   	//640x480x3
 
 //---------------------------------------------
 initial begin
-    //打开输入BMP图片
-	 iBmpFileId      = $fopen("F:\\FPGA-EP4CE10F17C8\\change\\sim\\bmp_tb_640x480\\bmp_pic_7.bmp","rb");
+    //打开输入BMP图片s
+	 iBmpFileId      = $fopen("F:\\FPGA-EP4CE10F17C8\\change\\sim\\bmp_tb_640x480\\bmp_pic_100_4l_1.bmp","rb");
 
     //将输入BMP图片加载到数组中
 	iCode = $fread(rBmpData,iBmpFileId);
@@ -307,23 +307,105 @@ wire	     	post1_img_Bit    ;
 //
 //	.bin_out            (bin_out)
 //);
-connect_component_top	connect_component_top_inst//用于仿真版顶层代码
-(
-	.clk				(clk),
-	.rst_n				(rst_n),
-	.per_frame_vsync	(post0_frame_vsync),
-	.per_frame_href		(post0_frame_href),
-	.per_frame_clken	(post0_frame_clken),
-	.per_img_Y			(post0_img_Y),
-	.per_img_Cb			(post0_img_Cb),
-	.per_img_Cr			(post0_img_Cr),
+//connect_component_top	connect_component_top_inst//用于仿真版顶层代码
+//(
+//	.clk				(clk),
+//	.rst_n				(rst_n),
+//	.per_frame_vsync	(post0_frame_vsync),
+//	.per_frame_href		(post0_frame_href),
+//	.per_frame_clken	(post0_frame_clken),
+//	.per_img_Y			(post0_img_Y),
+//	.per_img_Cb			(post0_img_Cb),
+//	.per_img_Cr			(post0_img_Cr),
+//
+//	.vsync_out			(vsync_out),
+//	.href_out			(href_out),
+//	.de_out				(de_out),
+//	.bin_out	        (bin_out)
+//	//output	wire		rgb_out	bin_out
+//);
 
-	.vsync_out			(vsync_out),
-	.href_out			(href_out),
-	.de_out				(de_out),
-	.bin_out	        (bin_out)
-	//output	wire		rgb_out	bin_out
+wire			key_color		;
+wire			key_mode		;
+wire            key_ycbcr	    ;
+wire            key_add_div     ;
+wire            change_in        ;
+
+
+
+wire	[1:0]	color			;
+wire	[1:0]	shape_infor		;
+
+
+wire			ram_wr_en		;
+wire	[28:0]	ram_wr_data		;
+wire	[2:0]	ycbcr_led		;
+wire			mode_led		;
+wire	[19:0]	seg_data		;
+
+assign	key_color = 1'b0;
+assign	key_mode  = 1'b0;
+assign	key_ycbcr = 1'b0;
+assign	key_add_div = 1'b0;
+assign	change_in = 1'b0;
+
+
+
+
+//connect_component_top	connect_component_top_INST//用于仿真版顶层代砿
+//(
+//	.clk				(clk				),
+//	.rst_n				(rst_n				),
+//	.per_frame_vsync	(per_frame_vsync	),
+//	.per_frame_href		(per_frame_href		),
+//	.per_frame_clken	(per_frame_clken	),
+//	.per_img_Y			(post0_img_Y			),
+//	.per_img_Cb			(per_img_Cb			),
+//	.per_img_Cr			(per_img_Cr			),
+//	.key_color			(key_color			),
+//
+//	.color				(color			),
+//	.shape_infor		(shape_infor	),
+//
+//	.ram_wr_en			(ram_wr_en	),
+//	.ram_wr_data		(ram_wr_data),
+//	.vsync_out			(vsync_out	),
+//	.href_out			(href_out	),
+//	.de_out				(de_out		),
+//	.bin_out			(bin_out	)
+//
+//);
+connect_component_top	connect_component_top_inst//用于仿真版顶层代砿
+(
+	.clk				(clk				),
+	.rst_n				(rst_n				),
+	.per_frame_vsync	(per_frame_vsync	),
+	.per_frame_href		(per_frame_href		),
+	.per_frame_clken	(per_frame_clken	),
+	.per_img_Y			(post0_img_Y			),
+	.per_img_Cb			(post0_img_Cb			),
+	.per_img_Cr			(post0_img_Cr			),
+	.change_in			(change_in			),
+	.key_color			(key_color	),
+	.key_mode			(key_mode),
+	.key_ycbcr			(key_ycbcr),
+	.key_add_div		(key_add_div),
+
+	.ycbcr_led			(ycbcr_led	),
+	.mode_led			(mode_led	),
+	.seg_data			(seg_data	),
+	.color				(color		),
+	.shape_infor		(shape_infor),
+
+	.ram_wr_en			(ram_wr_en	),
+	.ram_wr_data		(ram_wr_data),
+	.vsync_out			(vsync_out	),
+	.href_out			(href_out	),
+	.de_out				(de_out		),
+	.bin_out			(bin_out	)
+
 );
+
 
 
 

@@ -25,6 +25,11 @@ transcript
 *.runs/
 *.cache/
 *.gen/
+xsim.dir/
+*.sdb
+*.rlx
+*.pb
+*.log
 
 # Local editor and backup files
 *.bak
