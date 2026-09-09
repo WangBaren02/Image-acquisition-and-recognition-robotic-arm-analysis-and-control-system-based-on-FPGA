@@ -1,0 +1,34 @@
+# FPGA build products and temporary databases
+db/
+incremental_db/
+output_files/
+greybox_tmp/
+rtl_work/
+simulation/modelsim/
+*.rpt
+*.summary
+*.done
+*.sof
+*.pof
+*.jic
+*.rbf
+*.wlf
+*.sdo
+transcript
+
+# Vivado-generated project state
+.Xil/
+*.jou
+*.str
+*.hw/
+*.ip_user_files/
+*.runs/
+*.cache/
+*.gen/
+
+# Local editor and backup files
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

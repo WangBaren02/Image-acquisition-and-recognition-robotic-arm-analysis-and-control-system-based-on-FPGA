@@ -1,0 +1,21 @@
+# Keep browsable HDL and documentation stable across Windows/Linux checkouts.
+*.v text eol=lf
+*.sv text eol=lf
+*.vhd text eol=lf
+*.md text eol=lf
+*.qsf text eol=lf
+*.qpf text eol=lf
+*.qws text eol=lf
+*.qip text eol=lf
+*.qsys text eol=lf
+*.sopcinfo text eol=lf
+*.mif text eol=lf
+
+# Generated/vendor snapshots are preserved as supplied by the original archive.
+rtl/vendor/** -text
+hardware/quartus/** -text
+
+# Binary evidence and original-project backup files.
+*.png binary
+*.pdf binary
+*.zip binary
