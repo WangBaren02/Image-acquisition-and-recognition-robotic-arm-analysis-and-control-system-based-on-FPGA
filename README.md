@@ -1,176 +1,176 @@
-# FPGA Vision-Based Robotic Arm System
+# 基于 FPGA 的视觉与机械臂系统
 
-Pure-FPGA real-time vision and robotic-arm control system developed for the 9th China IC Innovation & Entrepreneurship Competition (第九届全国大学生集成电路创新创业大赛 · 海云捷讯杯).
+这是一个面向实时视觉识别与机械臂控制的纯 FPGA 系统，项目参加了第九届全国大学生集成电路创新创业大赛（海云捷讯杯）。
 
-## National Second Prize
+## 全国二等奖
 
-The project received the **National Second Prize** in the 9th China IC Innovation & Entrepreneurship Competition.
+本项目获得第九届全国大学生集成电路创新创业大赛 **全国二等奖**。
 
-![Complete system setup with the robotic arm, camera, and FPGA hardware](media/system_overview.png)
+![机械臂、摄像头与 FPGA 硬件组成的完整系统](media/system_overview.png)
 
-## Demo
+## 演示视频
 
-| Stage | Video |
+| 比赛阶段 | 视频 |
 |---|---|
-| Preliminary round — difficulty level 1 | [Bilibili demo](https://www.bilibili.com/video/BV1e2ybBSEzf) |
-| Preliminary round — difficulty level 2 | [Bilibili demo](https://www.bilibili.com/video/BV192ybBSESe) |
-| National finals — award-winning work | [Bilibili demo](https://www.bilibili.com/video/BV1e1ybBnE92) |
+| 初赛——难度一 | [Bilibili 演示视频](https://www.bilibili.com/video/BV1e2ybBSEzf) |
+| 初赛——难度二 | [Bilibili 演示视频](https://www.bilibili.com/video/BV192ybBSESe) |
+| 全国总决赛——获奖作品 | [Bilibili 演示视频](https://www.bilibili.com/video/BV1e1ybBnE92) |
 
-## System Overview
+## 系统概述
 
-The project combines camera capture, streaming image processing, object-feature extraction, cross-board data transfer, coordinate conversion, inverse-kinematics lookup, state sequencing, and servo actuation. The technical report describes a two-board system: an Artix-7 image/vision side and an AWC_C4 / Cyclone IV arm-control side.
+本项目将摄像头采集、流式图像处理、目标特征提取、板间数据传输、坐标转换、逆运动学查表、状态控制和舵机执行结合在一起。技术文档描述了一个双 FPGA 板系统：基于 Artix-7 的图像/视觉处理端，以及基于 AWC_C4 / Cyclone IV 的机械臂控制端。
 
-The repository contains both domains as source snapshots. The visible image-side top currently focuses on OV5640 capture, processing, DDR3/AXI buffering, and HDMI/VGA display. The archived Quartus arm project contains the arm-side SPI, coordinate, kinematics, FSM, interpolation, and PWM logic. The complete cross-board build is not claimed to be reproducible from the repository alone because generated clock, memory, FIFO, and some project files are external or missing; see [`docs/repository_audit.md`](docs/repository_audit.md) and [`docs/rtl_review.md`](docs/rtl_review.md).
+当前仓库同时保留了两个设计域的源代码快照。可浏览的图像端顶层主要包括 OV5640 采集、图像处理、DDR3/AXI 缓冲以及 HDMI/VGA 显示；归档的 Quartus 机械臂工程包括机械臂侧 SPI、坐标处理、运动学、FSM、插值和 PWM 控制逻辑。由于部分时钟、存储器、FIFO 以及工程文件属于外部生成文件或在快照中缺失，当前仓库不宣称可以单独完成完整的跨板工程重建。详细情况请参阅 [`docs/repository_audit.md`](docs/repository_audit.md) 和 [`docs/rtl_review.md`](docs/rtl_review.md)。
 
-## System Architecture
+## 系统架构
 
 ```mermaid
 flowchart LR
-    CAM[OV5640 camera]
-    subgraph VISION[Vision FPGA domain]
-        CAP[RGB565 capture]
-        PIPE[Streaming vision pipeline]
-        OBJ[Object information]
-        MEM[AXI / DDR3 path]
-        DISP[HDMI / VGA output]
+    CAM[OV5640 摄像头]
+    subgraph VISION[视觉 FPGA 域]
+        CAP[RGB565 图像采集]
+        PIPE[流式视觉处理流水线]
+        OBJ[目标信息]
+        MEM[AXI / DDR3 通路]
+        DISP[HDMI / VGA 输出]
     end
-    subgraph ARM[Robotic-arm FPGA domain]
-        SPI[SPI bridge]
-        MAP[Coordinate and mission mapping]
-        IK[Inverse-kinematics lookup]
-        FSM[Arm FSM and interpolation]
-        ACT[Five servo PWM outputs + air pump]
+    subgraph ARM[机械臂 FPGA 域]
+        SPI[SPI 桥接]
+        MAP[坐标与任务映射]
+        IK[逆运动学查表]
+        FSM[机械臂 FSM 与插值]
+        ACT[五路舵机 PWM 与气泵]
     end
 
     CAM --> CAP --> PIPE --> OBJ
     PIPE --> MEM
     PIPE --> DISP
-    OBJ -. "documented board-to-board path; SPI source is included" .-> SPI
+    OBJ -. "技术文档描述的板间通路；仓库包含 SPI 源码" .-> SPI
     SPI --> MAP --> IK --> FSM --> ACT
 ```
 
-The dashed connection represents the documented/project-level relationship between the two FPGA domains. The current tracked image-side top and the archived arm-side Quartus top are separate build snapshots rather than one verified monolithic top-level design.
+虚线表示技术文档和项目结构中描述的两个 FPGA 域之间的关系。当前仓库中的图像端顶层与归档的机械臂 Quartus 顶层是两个独立的工程快照，并不是一个已经验证可以整体编译的单一顶层工程。
 
-## Vision Pipeline
+## 视觉处理流水线
 
-The active image-processing hierarchy in [`rtl/top/vision/connect_component_top.v`](rtl/top/vision/connect_component_top.v) exposes the following order:
+[`rtl/top/vision/connect_component_top.v`](rtl/top/vision/connect_component_top.v) 中可以直接看到如下图像处理顺序：
 
 ```mermaid
 flowchart LR
-    A[OV5640 RGB565 stream] --> B[rgb2ycbcr]
-    B --> C[binarization / color threshold]
-    C --> D[erosion]
-    D --> E[dilation]
-    E --> F[8-connected component processing]
-    F --> G[centroid, area, highest/lowest points, shape information]
-    G --> H[angle_find orientation estimate]
+    A[OV5640 RGB565 数据流] --> B[rgb2ycbcr]
+    B --> C[二值化 / 颜色阈值分割]
+    C --> D[腐蚀]
+    D --> E[膨胀]
+    E --> F[8 连通域处理]
+    F --> G[质心、面积、最高/最低点、形状信息]
+    G --> H[angle_find 方向角估计]
 ```
 
-The exact RTL data path is implemented through frame-valid, line-valid, and data-enable signals. The image-side top also connects the processed stream to an AXI/DDR3 wrapper and a VGA/HDMI output path.
+实际 RTL 数据通路通过帧同步、行同步和数据使能信号传递。图像端顶层还将处理后的视频流连接到 AXI/DDR3 包装模块以及 VGA/HDMI 输出通路。
 
-## Hardware Architecture
+## 硬件架构
 
-The following hardware and design mechanisms are evidenced by the RTL, project files, or technical documents:
+以下硬件和设计机制均可以从 RTL、工程文件或技术文档中得到证据：
 
-- **Vision board:** Wildfire ShengTeng Mini / Artix-7 XC7A100T as identified in the technical report.
-- **Arm board:** AWC_C4 青春版 / Cyclone IV E `EP4CE6F17C8L` according to [`hardware/quartus/CICC_2025_Arm.qsf`](hardware/quartus/CICC_2025_Arm.qsf).
-- **Camera:** OV5640 with SCCB/I2C-style configuration and RGB565 capture logic.
-- **Streaming pixel processing:** valid/line/frame timing signals pass through color conversion, segmentation, morphology, connected-component processing, and feature extraction stages.
-- **Memory and display:** an AXI-style DDR3 wrapper, generated-MIG dependency, VGA timing, TMDS encoding, and differential HDMI serialization are present in the image-side snapshot.
-- **Board-to-board communication:** SPI master/slave/bridge RTL and a 32-bit arm-side transaction structure are present in the arm project snapshot.
-- **Hardware arithmetic:** integer/shift-based arithmetic, divider/square-root/CORDIC-related IP, ROM lookup tables, and coordinate mapping are present in the arm-side source. The exact fixed-point formats and precision are not documented as metadata here.
-- **Control logic:** an explicit arm state machine, mode selection, linear interpolation, reset/lock gating, and five servo PWM channels plus air-pump control are present.
-- **Clock domains:** camera pixel, generated image, DDR user, and arm-side clock signals are visible in the sources. A complete CDC scheme and timing report are not included in this repository snapshot.
+- **视觉处理板：** 技术文档中记录的野火升腾 Mini / Artix-7 XC7A100T。
+- **机械臂控制板：** [Quartus 工程配置](hardware/quartus/CICC_2025_Arm.qsf) 中记录的 AWC_C4 青春版 / Cyclone IV E `EP4CE6F17C8L`。
+- **摄像头：** OV5640，包含 SCCB/I2C 风格配置和 RGB565 采集逻辑。
+- **流式像素处理：** valid、line、frame 等时序信号经过颜色空间转换、分割、形态学处理、连通域处理和特征提取阶段。
+- **存储与显示：** 图像端快照中存在 AXI 风格 DDR3 包装模块、生成的 MIG 依赖、VGA 时序、TMDS 编码和 HDMI 差分串行输出。
+- **板间通信：** 机械臂工程快照中存在 SPI master/slave/bridge RTL 以及 32-bit arm-side 事务结构。
+- **硬件数学运算：** 机械臂侧代码中存在整数/移位运算、除法/开方/CORDIC 相关 IP、ROM 查表和坐标映射。具体定点格式和精度没有在当前仓库元数据中明确记录。
+- **控制逻辑：** 存在明确的机械臂状态机、模式选择、线性插值、复位/锁定控制、五路舵机 PWM 和气泵控制。
+- **时钟域：** 源码中可以看到摄像头像素时钟、图像端生成时钟、DDR 用户时钟和机械臂侧时钟。当前仓库不包含完整的 CDC 方案说明和时序报告。
 
-No throughput, FPS, latency, resource-utilization, timing-frequency, or CDC-correctness number is claimed in this README. Reported competition-document measurements remain in the original technical report and have not been independently reproduced as part of this organization pass.
+本 README 不宣称任何 throughput、FPS、latency、资源利用率、时钟频率或 CDC 正确性数字。技术文档中出现的竞赛测试数据仍保留在原始技术报告中，但没有在本次整理中独立复现。
 
-## Key RTL Modules
+## 重点 RTL 模块
 
-| Module / source | Function | Attribution status |
+| 模块 / 源文件 | 作用 | 归属说明 |
 |---|---|---|
-| [`ov5640_hdmi.v`](rtl/top/vision/ov5640_hdmi.v) | Image-side integration of camera, vision, DDR3/AXI, and HDMI/VGA paths. | Contains EmbedFire reference header; integration ownership requires confirmation. |
-| [`ov5640_top.v`](rtl/camera/ov5640/ov5640_top.v) | OV5640 configuration and pixel-capture wrapper. | EmbedFire / 野火 header. |
-| [`connect_component_top.v`](rtl/top/vision/connect_component_top.v) | Connects segmentation, morphology, connected components, centroid/feature extraction, and angle estimation. | Probable project-specific/adapted; owner confirmation required. |
-| [`binarization.v`](rtl/vision/segmentation/binarization.v) | Color-dependent Y/Cb/Cr thresholding and binary stream generation. | Probable project-specific/adapted; owner confirmation required. |
-| [`erosion.v`](rtl/vision/morphology/erosion.v) and [`dilation.v`](rtl/vision/morphology/dilation.v) | 3 × 3 neighborhood morphology stages. | Probable adapted/project-specific; owner confirmation required. |
-| [`connect_8_area.v`](rtl/vision/connected_components/connect_8_area.v) | 8-connected component labeling/selection logic. | Probable project-specific/adapted; owner confirmation required. |
-| [`coordinate_centroid.v`](rtl/vision/feature_extraction/coordinate_centroid.v) | Coordinate accumulation, centroid/highest-point information, area-based shape information, and control flags. | Probable project-specific/adapted; owner confirmation required. |
-| [`angle_find.v`](rtl/vision/angle_estimation/angle_find.v) | Orientation/angle estimation from extracted feature coordinates. | Probable project-specific/adapted; owner confirmation required. |
-| [`CICC_2025_Arm.v`](rtl/top/robotic_arm/CICC_2025_Arm.v) | Cyclone IV arm-side top-level integration. | Probable project-specific integration; owner confirmation required. |
-| [`send_location.v`](rtl/top/robotic_arm/send_location.v) | Arm-side coordinate mapping, destination sequencing, and data-valid/start control. | Probable project-specific/adapted; owner confirmation required. |
-| [`inverse_kinematics_time.v`](rtl/robotic_arm/kinematics/inverse_kinematics_time.v) | Time-based/integer coordinate-to-ROM-address calculation path. | Project snapshot contains this and a CORDIC alternative; active choice needs confirmation. |
-| [`state_ctrl.v`](rtl/robotic_arm/control/state_ctrl.v) and [`linear_interpolation.v`](rtl/robotic_arm/control/linear_interpolation.v) | Arm sequence FSM and stepwise servo target transition. | Probable project-specific/adapted; owner confirmation required. |
-| [`pwm_servo_1M.v`](rtl/robotic_arm/servo/pwm_servo_1M.v) | Servo PWM generation at the arm-side control clock. | Probable project-specific/adapted; owner confirmation required. |
+| [`ov5640_hdmi.v`](rtl/top/vision/ov5640_hdmi.v) | 图像端摄像头、视觉处理、DDR3/AXI 和 HDMI/VGA 通路的集成顶层。 | 含 EmbedFire reference header；集成部分的具体归属需要确认。 |
+| [`ov5640_top.v`](rtl/camera/ov5640/ov5640_top.v) | OV5640 配置与像素采集包装模块。 | 含 EmbedFire / 野火 header。 |
+| [`connect_component_top.v`](rtl/top/vision/connect_component_top.v) | 连接分割、形态学、连通域、质心/特征提取和角度估计。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`binarization.v`](rtl/vision/segmentation/binarization.v) | 基于 Y/Cb/Cr 的颜色阈值分割和二值流生成。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`erosion.v`](rtl/vision/morphology/erosion.v) 与 [`dilation.v`](rtl/vision/morphology/dilation.v) | 3 × 3 邻域形态学处理阶段。 | 可能属于适配代码或项目代码；需要确认具体贡献者。 |
+| [`connect_8_area.v`](rtl/vision/connected_components/connect_8_area.v) | 8 连通域标记与目标选择逻辑。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`coordinate_centroid.v`](rtl/vision/feature_extraction/coordinate_centroid.v) | 坐标累加、质心/最高点信息、基于面积的形状信息和控制标志。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`angle_find.v`](rtl/vision/angle_estimation/angle_find.v) | 根据提取的特征坐标估计目标方向角。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`CICC_2025_Arm.v`](rtl/top/robotic_arm/CICC_2025_Arm.v) | Cyclone IV 机械臂侧的顶层集成。 | 可能属于项目集成代码；需要确认具体贡献者。 |
+| [`send_location.v`](rtl/top/robotic_arm/send_location.v) | 机械臂侧坐标映射、目标位置序列和数据有效/启动控制。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`inverse_kinematics_time.v`](rtl/robotic_arm/kinematics/inverse_kinematics_time.v) | 基于时序/整数运算的坐标到 ROM 地址计算路径。 | 工程快照同时包含 CORDIC 版本，最终使用版本需要确认。 |
+| [`state_ctrl.v`](rtl/robotic_arm/control/state_ctrl.v) 与 [`linear_interpolation.v`](rtl/robotic_arm/control/linear_interpolation.v) | 机械臂动作序列 FSM 和舵机目标值的逐步变化。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
+| [`pwm_servo_1M.v`](rtl/robotic_arm/servo/pwm_servo_1M.v) | 机械臂侧控制时钟下的舵机 PWM 生成。 | 可能属于项目代码或适配代码；需要确认具体贡献者。 |
 
-## My Contributions
+## 我的贡献
 
-The repository history is authored by `Hanwen Zhang`, but Git metadata alone does not establish file-level authorship. The technical report presents team-level work, and several source files carry third-party/reference headers. The following contribution statement is therefore intentionally conservative:
+当前仓库的 Git 提交作者为 `Hanwen Zhang`，但 Git 元数据本身不能证明每个文件的个人作者。技术文档呈现的是团队级工作，而且部分源文件带有第三方/reference header。因此，本节先采用保守表述：
 
-- The project team integrated the camera, vision, memory/display, board-to-board communication, robotic-arm analysis, and control subsystems described in the technical report.
-- The files without explicit third-party headers in `rtl/vision/`, `rtl/inter_board/`, and `rtl/robotic_arm/` are probable project-specific or adapted project code, but the exact individual ownership is not proven by this repository.
+- 项目团队完成了技术文档中描述的摄像头、视觉处理、存储/显示、板间通信、机械臂分析和控制子系统集成。
+- `rtl/vision/`、`rtl/inter_board/` 和 `rtl/robotic_arm/` 中没有明确第三方 header 的文件，可能属于项目代码或适配代码，但当前仓库无法证明具体的个人归属。
 
-Before using this repository as a personal portfolio, fill in these TODOs:
+在把仓库作为个人作品集公开使用前，请补充以下信息：
 
-- [ ] Confirm which vision RTL modules I personally designed or modified.
-- [ ] Confirm whether my work included the OV5640/HDMI/DDR3 reference integration and identify the extent of adaptation.
-- [ ] Confirm my responsibility for SPI packet format, coordinate mapping, inverse-kinematics lookup, FSM/interpolation, and PWM control.
-- [ ] Identify any additional teammates or external references whose contribution/license should be credited.
-- [ ] Confirm the active inverse-kinematics implementation and the exact build/project file set used in the competition.
+- [ ] 确认我本人具体设计或修改过哪些视觉 RTL 模块。
+- [ ] 确认我是否负责 OV5640/HDMI/DDR3 reference integration，以及具体适配范围。
+- [ ] 确认我是否负责 SPI 数据包格式、坐标映射、逆运动学查表、FSM/插值和 PWM 控制。
+- [ ] 确认需要致谢的队友、外部参考代码或其他第三方来源。
+- [ ] 确认比赛最终使用的 inverse-kinematics 实现和完整工程文件集合。
 
-## Hardware
+## 硬件组成
 
-| Component | Evidence in repository |
+| 组成 | 仓库中的证据 |
 |---|---|
-| Vision FPGA board | Wildfire ShengTeng Mini / XC7A100T in the technical report. |
-| Arm FPGA board | AWC_C4 青春版 / Cyclone IV E `EP4CE6F17C8L` in the Quartus project snapshot. |
-| Camera | OV5640. |
-| External memory | DDR3 path with AXI-style user wrapper on the image side. |
-| Display | VGA timing and HDMI TMDS output modules. |
-| Communication | SPI bridge between the documented FPGA domains. |
-| Actuation | Five servo PWM outputs and an air-pump control output. |
-| Mechanical system | Robotic arm kit described in the technical report; the report identifies a modified 众灵科技 arm kit. |
+| 视觉 FPGA 板 | 技术文档中的野火升腾 Mini / XC7A100T。 |
+| 机械臂 FPGA 板 | Quartus 工程快照中的 AWC_C4 青春版 / Cyclone IV E `EP4CE6F17C8L`。 |
+| 摄像头 | OV5640。 |
+| 外部存储器 | 图像端带 AXI 风格用户包装模块的 DDR3 通路。 |
+| 显示输出 | VGA 时序和 HDMI TMDS 输出模块。 |
+| 板间通信 | 技术文档描述的两个 FPGA 域之间的 SPI bridge。 |
+| 执行机构 | 五路舵机 PWM 输出和一路气泵控制输出。 |
+| 机械系统 | 技术文档中描述的机械臂套件；文档记录为改造后的众灵科技机械臂套件。 |
 
-## Repository Structure
+## 仓库结构
 
 ```text
 rtl/
-├── top/vision/                  image-side integration
-├── top/robotic_arm/             arm-side top-level and coordinate integration
-├── camera/ov5640/               camera configuration/capture
-├── vision/                      color, segmentation, morphology, features, angle
-├── memory/axi_ddr3/             AXI/DDR3 user-side wrapper
-├── display/hdmi/                VGA/HDMI timing and serialization
-├── inter_board/spi/             SPI bridge RTL
-├── robotic_arm/                 kinematics, placement, control, servo
-└── vendor/                      generated/reference IP, clearly labeled
-sim/                             vision and arm-side testbenches
-docs/                            audit, review notes, technical report, slides
-media/                           semantic portfolio images
-third_party/                     attribution boundaries and ownership notes
-hardware/quartus/                small Quartus project/configuration snapshot
-archive/                         unchanged original CICC_2025_Arm.zip
+├── top/vision/                  图像端集成
+├── top/robotic_arm/             机械臂侧顶层和坐标集成
+├── camera/ov5640/               摄像头配置与采集
+├── vision/                      颜色、分割、形态学、特征和角度处理
+├── memory/axi_ddr3/             AXI/DDR3 用户侧包装模块
+├── display/hdmi/                VGA/HDMI 时序和串行化
+├── inter_board/spi/             SPI 桥接 RTL
+├── robotic_arm/                 运动学、放置、控制和舵机
+└── vendor/                      明确标注的 generated/reference IP
+sim/                             视觉端和机械臂侧 testbench
+docs/                            审计、review、技术报告和答辩材料
+media/                           具有语义化名称的作品集图片
+third_party/                     归因边界和作者归属说明
+hardware/quartus/                Quartus 工程/配置快照
+archive/                         未改变的原始 CICC_2025_Arm.zip
 ```
 
-## Documentation
+## 项目文档
 
-- [`docs/technical_report.pdf`](docs/technical_report.pdf) — technical report / 技术文档.
-- [`docs/competition_presentation.pdf`](docs/competition_presentation.pdf) — competition presentation / 答辩 PPT.
-- [`docs/repository_audit.md`](docs/repository_audit.md) — evidence-based repository audit and architecture inventory.
-- [`docs/rtl_review.md`](docs/rtl_review.md) — static review findings deliberately left unfixed in this organization pass.
-- [`docs/github_metadata.md`](docs/github_metadata.md) — proposed repository name, description, and topics; no remote metadata was changed.
-- [`third_party/README.md`](third_party/README.md) — attribution and authorship boundaries.
+- [`docs/technical_report.pdf`](docs/technical_report.pdf) — 技术报告。
+- [`docs/competition_presentation.pdf`](docs/competition_presentation.pdf) — 比赛答辩 PPT。
+- [`docs/repository_audit.md`](docs/repository_audit.md) — 基于实际文件的仓库审计和架构清单。
+- [`docs/rtl_review.md`](docs/rtl_review.md) — 本轮整理中记录但未修复的静态 RTL review 项目。
+- [`docs/github_metadata.md`](docs/github_metadata.md) — 建议的仓库名称、简介和 topics；没有修改远程 metadata。
+- [`third_party/README.md`](third_party/README.md) — 代码归因和作者归属边界。
 
-## Code Attribution
+## 代码归因
 
-The repository contains a mixture of project-specific RTL, adapted/reference infrastructure, and generated FPGA IP:
+本仓库同时包含项目 RTL、适配/reference infrastructure 和 FPGA generated IP：
 
-- EmbedFire / 野火 headers are present in the OV5640, AXI/DDR3, HDMI, and related image-side integration sources.
-- CrazyBingo and 正点原子 / OpenedV notices are present in the color-space conversion sources.
-- Intel/Altera generated wrappers and configuration are kept under `rtl/vendor/` and retain their original legal headers where supplied.
-- The original full project snapshot is preserved under [`archive/CICC_2025_Arm.zip`](archive/CICC_2025_Arm.zip).
+- OV5640、AXI/DDR3、HDMI 以及相关图像端集成代码中存在 EmbedFire / 野火 header。
+- 颜色空间转换代码中存在 CrazyBingo 和 正点原子 / OpenedV 归属说明。
+- Intel/Altera generated wrapper 和配置文件保存在 `rtl/vendor/` 下，并保留源文件中已有的法律声明。
+- 完整的原始工程快照保存在 [`archive/CICC_2025_Arm.zip`](archive/CICC_2025_Arm.zip)。
 
-Please respect the original copyright notices and licenses. The root MIT license should not be interpreted as relicensing embedded vendor or third-party material.
+请遵守原始 copyright notice 和 license。根目录 MIT license 不应被解释为重新授权其中的 vendor 或第三方材料。
 
-## Award
+## 获奖情况
 
-**9th China IC Innovation & Entrepreneurship Competition (第九届全国大学生集成电路创新创业大赛 · 海云捷讯杯) — National Second Prize.**
+**第九届全国大学生集成电路创新创业大赛（海云捷讯杯）——全国二等奖。**
