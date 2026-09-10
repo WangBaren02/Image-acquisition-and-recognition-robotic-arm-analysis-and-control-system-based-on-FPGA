@@ -50,35 +50,13 @@
 
 从技术报告、当前图像端顶层、机械臂侧顶层和 SPI 文件可以确认这是两个 FPGA 设计域组成的系统快照：
 
-```mermaid
-flowchart LR
-    CAM[OV5640 摄像头]
+审计报告引用技术报告中的原始框图作为系统架构证据，不对流程图进行重新绘制。图 1 给出两个 FPGA 功能模块的顶层边界，图 2 给出视觉处理、机械臂控制和执行机构之间的流程关系。
 
-    subgraph VISION[视觉 FPGA 域]
-        CAP[ov5640_top<br/>RGB565 采集]
-        YCC[rgb2ycbcr<br/>Y/Cb/Cr]
-        VP[颜色分割<br/>形态学<br/>连通域/特征/角度]
-        INFO[目标信息<br/>X/Y/形状/角度]
-        V_SPI[SPI_slave]
-        DDR[AXI / DDR3<br/>帧缓冲]
-        HDMI[VGA / HDMI]
+![技术报告图 1：系统总体设计方案框图](../media/system_overall_architecture_from_technical_report.png)
 
-        CAM --> CAP --> YCC --> VP --> INFO --> V_SPI
-        VP --> DDR --> HDMI
-    end
+![技术报告图 2：系统流程图](../media/system_flow_from_technical_report.png)
 
-    subgraph ARM[机械臂 FPGA 域]
-        A_SPI[SPI_Shengteng]
-        LOC[send_location<br/>坐标/任务映射]
-        IK[逆运动学候选]
-        CTRL[状态控制<br/>线性插值]
-        ACT[五路舵机 PWM<br/>气泵控制]
-
-        A_SPI --> LOC --> IK --> CTRL --> ACT
-    end
-
-    V_SPI -. 板间 SPI .-> A_SPI
-```
+来源：[`docs/technical_report.pdf`](technical_report.pdf)，第 5 页图 1、第 10 页图 2。
 
 图像端当前顶层 `ov5640_hdmi` 本身没有实例化机械臂端顶层；机械臂端 `CICC_2025_Arm` 也不是图像端顶层的子模块。因此上图表达的是技术资料和跨板 SPI RTL 所支持的系统关系，不是一个已经验证可以整体编译的单一 Verilog top。
 

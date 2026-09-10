@@ -29,59 +29,47 @@
 
 ## 系统架构
 
-下面的系统级关系来自当前图像端顶层和仓库中的机械臂 RTL/技术文档。虚线表示两个 FPGA 设计域之间的板间关系；图像端与机械臂端在仓库中仍是两个工程快照。
+下面直接使用技术报告中的原始框图截图，不重新绘制流程图。图 1 展示系统的顶层边界：摄像头输入图像采集及识别模块，再连接到机械臂分析及控制模块，最终驱动机械臂。
 
-```mermaid
-flowchart LR
-    CAM[OV5640 摄像头]
+![技术报告图 1：系统总体设计方案框图](media/system_overall_architecture_from_technical_report.png)
 
-    subgraph VISION[视觉 FPGA 域]
-        ACQ[ov5640_top<br/>RGB565 采集]
-        YCC[rgb2ycbcr<br/>Y/Cb/Cr]
-        VPIPE[图像处理流水线]
-        INFO[目标信息<br/>坐标/形状/角度]
-        SPI_V[SPI_slave<br/>数据发送]
-        DDR[AXI / DDR3<br/>帧缓冲]
-        DISP[VGA / HDMI<br/>视频输出]
+来源：[`docs/technical_report.pdf`](docs/technical_report.pdf)，第 5 页，图 1。
 
-        CAM --> ACQ --> YCC --> VPIPE --> INFO
-        VPIPE --> DDR --> DISP
-        INFO --> SPI_V
-    end
+图 2 展示视觉 FPGA 与机械臂分析/控制模块之间的系统流程，以及图像信息、物块信息和控制反馈的关系。
 
-    subgraph ARM[机械臂 FPGA 域]
-        SPI_A[SPI 接收/桥接]
-        MAP[坐标与任务映射]
-        IK[逆运动学]
-        FSM[动作 FSM / 线性插值]
-        PWM[舵机 PWM / 气泵]
+![技术报告图 2：系统流程图](media/system_flow_from_technical_report.png)
 
-        SPI_A --> MAP --> IK --> FSM --> PWM
-    end
-
-    SPI_V -. 板间 SPI .-> SPI_A
-```
+来源：[`docs/technical_report.pdf`](docs/technical_report.pdf)，第 10 页，图 2。
 
 ## 图像处理流水线
 
-当前重新上传的 `rtl/new/impress/connect_component_top.v` 和 `rtl/new/newbe/newbe/erosion_7x7/erosion_7x7.v` 中的实例连接，确认了以下活动图像处理顺序。整理后的活动文件位于 `rtl/vision/` 和 `rtl/top/vision/`。
+整理后的 [`rtl/top/vision/connect_component_top.v`](rtl/top/vision/connect_component_top.v) 和 [`rtl/vision/morphology/7x7/erosion_7x7.v`](rtl/vision/morphology/7x7/erosion_7x7.v) 中的实例连接，确认了以下活动图像处理顺序。原始上传目录已归档，当前活动文件位于 `rtl/vision/` 和 `rtl/top/vision/`。
 
-```mermaid
-flowchart LR
-    A[OV5640 RGB565] --> B[rgb2ycbcr]
-    B --> C[color_bin<br/>颜色阈值分割/二值化]
-    C --> D1[erosion_7x7]
-    D1 --> D2[erosion_7x7]
-    D2 --> E[erosion<br/>3 × 3]
-    E --> F[dilation<br/>3 × 3]
-    F --> G[connect_8_area<br/>8 连通域]
-    G --> H[coordinate_centroid<br/>质心/边界/面积/形状]
-    H --> I[angle_find<br/>方向角估计]
-```
+技术报告中的图 3 直接展示图像采集及识别模块的颜色识别、数据预处理、信息识别与获取路径。
+
+![技术报告图 3：图像识别系统流程图](media/image_processing_flow_from_technical_report.png)
+
+来源：[`docs/technical_report.pdf`](docs/technical_report.pdf)，第 12 页，图 3。
+
+从当前 RTL 实例关系核实到的活动链路为：`OV5640 RGB565` → `rgb2ycbcr` → `color_bin`（颜色阈值分割/二值化）→ `erosion_7x7` × 2 → `erosion`（3 × 3）→ `dilation`（3 × 3）→ `connect_8_area`（8 连通域）→ `coordinate_centroid`（质心/边界/面积/形状）→ `angle_find`（方向角）。
 
 顶层还把处理后的 `bin_out` 写入 AXI/DDR3 读写通路，并通过 VGA/HDMI 端口输出显示；目标信息通过图像端 `SPI_slave` 的 `Din` 路径连接到板间通信接口。按键、LED 和数码管用于当前代码中的颜色/模式/阈值调节及状态显示。
 
+### 图像端 TOP 框图
+
+下面保留你重新上传的 `VIP_TOP.png`，仅将文件放入 `media/` 并改为语义化文件名；图片内容未重绘、未伪造实验结果。
+
 ![图像处理部分顶层框图](media/vision_top_block_diagram.png)
+
+来源：重新上传的 `VIP_TOP.png`，对应当前图像处理部分 TOP 框图。
+
+## 机械臂分析与控制流程
+
+技术报告中的图 40 直接展示机械臂分析、逆运动学、放置模块、状态控制、模式选择、线性插值和 PWM 生成之间的关系。
+
+![技术报告图 40：机械臂控制系统流程图](media/robotic_arm_flow_from_technical_report.png)
+
+来源：[`docs/technical_report.pdf`](docs/technical_report.pdf)，第 35 页，图 40。
 
 ### 活动 RTL 层次
 
